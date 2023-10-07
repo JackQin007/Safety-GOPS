@@ -1,0 +1,45 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug quadrotor.py",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/rl_experiment_copy.py",
+            "args": [
+                "--algo",
+                "ppo",
+                "--task",
+                "quadrotor",
+                "--overrides",
+                "env/quadrotor_3D/quadrotor_3D_track.yaml",
+                "env/quadrotor_3D/ppo_quadrotor_3D.yaml",
+                "--kv_overrides",
+                "algo_config.training=False"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "stopOnEntry": false
+        },
+        // {
+        //     "name": "Debug quadrotor.py",
+        //     "type": "python",
+        //     "request": "launch",
+        //     "program": "${workspaceFolder}/pid_experiment.py",
+        //     "args": [
+        //         "--algo",
+        //         "pid",
+        //         "--task",
+        //         "quadrotor",
+        //         "--overrides",
+        //         "env/quadrotor_3D/quadrotor_3D_track.yaml",
+        //         "env/quadrotor_3D/ppo_quadrotor_3D.yaml",
+        //         "--kv_overrides",
+        //         "algo_config.training=False"
+        //     ],
+        //     "cwd": "${workspaceFolder}",
+        //     "console": "integratedTerminal",
+        //     "stopOnEntry": false
+        // }
+    ]
+}
