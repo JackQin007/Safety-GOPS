@@ -16,8 +16,8 @@ import pybullet as p
 from env.benchmark_env import Cost, Task
 from env.constraints import GENERAL_CONSTRAINTS
 from env.math_and_models.symbolic_systems import SymbolicModel
-from gym_pybullet_drones.base_aviary import BaseAviary
-from gym_pybullet_drones.quadrotor_utils import QuadType, cmd2pwm, pwm2rpm
+from model.base_aviary import BaseAviary
+from model.quadrotor_utils import QuadType, cmd2pwm, pwm2rpm
 from env.math_and_models.transformations import transform_trajectory, torchRotXYZ
 
 

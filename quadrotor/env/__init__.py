@@ -3,8 +3,8 @@
 from utils.registration import register
 
 register(idx='quadrotor',
-         entry_point='gym_pybullet_drones.quadrotor:Quadrotor',
-         config_entry_point='gym_pybullet_drones:quadrotor.yaml')
+         entry_point='model.quadrotor:Quadrotor',
+         config_entry_point='model:quadrotor.yaml')
 
 '''Initializing vectorized environments.'''
 
