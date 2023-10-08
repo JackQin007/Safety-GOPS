@@ -31,13 +31,9 @@ class DroneModel(str, Enum):
 class Physics(str, Enum):
     '''Physics implementations enumeration class.'''
 
-    PYB = 'pyb'  # Base PyBullet physics update.
+ 
     DYN = 'dyn'  # Update with an explicit model of the dynamics.
-    PYB_GND = 'pyb_gnd'  # PyBullet physics update with ground effect.
-    PYB_DRAG = 'pyb_drag'  # PyBullet physics update with drag.
-    PYB_DW = 'pyb_dw'  # PyBullet physics update with downwash.
-    PYB_GND_DRAG_DW = 'pyb_gnd_drag_dw'  # PyBullet physics update with ground effect, drag, and downwash.
-
+  
 
 class ImageType(int, Enum):
     '''Camera capture image type enumeration class.'''
@@ -56,7 +52,7 @@ class BaseAviary(BenchmarkEnv):
     def __init__(self,
                  drone_model: DroneModel = DroneModel.CF2X,
                  num_drones: int = 1,
-                 physics: Physics = Physics.PYB,
+                 physics: Physics = Physics.DYN,
                  record=False,
                  gui=False,
                  verbose=False,
@@ -240,10 +236,7 @@ class BaseAviary(BenchmarkEnv):
         self._update_and_store_kinematic_information()
         # Start video recording.
         self._start_video_recording()
-        # # Show frame of references of drones, will severly slow down the GUI.
-        # for i in range(self.NUM_DRONES):
-        # if gui:
-        #     self._show_drone_local_axes(i)
+
 
     def _advance_simulation(self, clipped_action, disturbance_force=None):
         '''Advances the environment by one simulation step.
@@ -260,30 +253,16 @@ class BaseAviary(BenchmarkEnv):
             # Update and store the drones kinematic info for certain
             # Between aggregate steps for certain types of update.
             if self.PYB_STEPS_PER_CTRL > 1 and self.PHYSICS in [
-                    Physics.DYN, Physics.PYB_GND, Physics.PYB_DRAG,
-                    Physics.PYB_DW, Physics.PYB_GND_DRAG_DW
+                    Physics.DYN
             ]:
                 self._update_and_store_kinematic_information()
             # Step the simulation using the desired physics update.
             for i in range(self.NUM_DRONES):
-                if self.PHYSICS == Physics.PYB:
-                    self._physics(clipped_action[i, :], i)
-                elif self.PHYSICS == Physics.DYN:
+             
+                if self.PHYSICS == Physics.DYN:
                     self._dynamics(clipped_action[i, :], i)
-                elif self.PHYSICS == Physics.PYB_GND:
-                    self._physics(clipped_action[i, :], i)
-                    self._ground_effect(clipped_action[i, :], i)
-                elif self.PHYSICS == Physics.PYB_DRAG:
-                    self._physics(clipped_action[i, :], i)
-                    self._drag(self.last_clipped_action[i, :], i)
-                elif self.PHYSICS == Physics.PYB_DW:
-                    self._physics(clipped_action[i, :], i)
-                    self._downwash(i)
-                elif self.PHYSICS == Physics.PYB_GND_DRAG_DW:
-                    self._physics(clipped_action[i, :], i)
-                    self._ground_effect(clipped_action[i, :], i)
-                    self._drag(self.last_clipped_action[i, :], i)
-                    self._downwash(i)
+      
+               
                 # Apply disturbance
                 if disturbance_force is not None:
                     pos = self._get_drone_state_vector(i)[:3]
@@ -386,111 +365,8 @@ class BaseAviary(BenchmarkEnv):
         ])
         return state.reshape(20,)
 
-    def _physics(self, rpm, nth_drone):
-        '''Base PyBullet physics implementation.
-
-        Args:
-            rpm (ndarray): (4)-shaped array of ints containing the RPMs values of the 4 motors.
-            nth_drone (int): The ordinal number/position of the desired drone in list self.DRONE_IDS.
-        '''
-        forces = np.array(rpm**2) * self.KF
-        torques = np.array(rpm**2) * self.KM
-        z_torque = (-torques[0] + torques[1] - torques[2] + torques[3])
-        for i in range(4):
-            p.applyExternalForce(self.DRONE_IDS[nth_drone],
-                                 i,
-                                 forceObj=[0, 0, forces[i]],
-                                 posObj=[0, 0, 0],
-                                 flags=p.LINK_FRAME,
-                                 physicsClientId=self.PYB_CLIENT)
-        p.applyExternalTorque(self.DRONE_IDS[nth_drone],
-                              4,
-                              torqueObj=[0, 0, z_torque],
-                              flags=p.LINK_FRAME,
-                              physicsClientId=self.PYB_CLIENT)
-
-    def _ground_effect(self, rpm, nth_drone):
-        '''PyBullet implementation of a ground effect model.
-
-        Inspired by the analytical model used for comparison in (Shi et al., 2019).
-
-        Args:
-            rpm (ndarray): (4)-shaped array of ints containing the RPMs values of the 4 motors.
-            nth_drone (int): The ordinal number/position of the desired drone in list self.DRONE_IDS.
-        '''
-        # Kin. info of all links (propellers and center of mass)
-        link_states = np.array(
-            p.getLinkStates(self.DRONE_IDS[nth_drone],
-                            linkIndices=[0, 1, 2, 3, 4],
-                            computeLinkVelocity=1,
-                            computeForwardKinematics=1,
-                            physicsClientId=self.PYB_CLIENT))
-        # Simple, per-propeller ground effects.
-        prop_heights = np.array([
-            link_states[0, 0][2], link_states[1, 0][2], link_states[2, 0][2],
-            link_states[3, 0][2]
-        ])
-        prop_heights = np.clip(prop_heights, self.GND_EFF_H_CLIP, np.inf)
-        gnd_effects = np.array(rpm**2) * self.KF * self.GND_EFF_COEFF \
-            * (self.PROP_RADIUS / (4 * prop_heights))**2
-        if np.abs(self.rpy[nth_drone, 0]) < np.pi / 2 and np.abs(
-                self.rpy[nth_drone, 1]) < np.pi / 2:
-            for i in range(4):
-                p.applyExternalForce(self.DRONE_IDS[nth_drone],
-                                     i,
-                                     forceObj=[0, 0, gnd_effects[i]],
-                                     posObj=[0, 0, 0],
-                                     flags=p.LINK_FRAME,
-                                     physicsClientId=self.PYB_CLIENT)
-        # TODO: a more realistic model accounting for the drone's
-        # Attitude and its z-axis velocity in the world frame.
-
-    def _drag(self, rpm, nth_drone):
-        '''PyBullet implementation of a drag model.
-
-        Based on the the system identification in (Forster, 2015).
-
-        Args:
-            rpm (ndarray): (4)-shaped array of ints containing the RPMs values of the 4 motors.
-            nth_drone (int): The ordinal number/position of the desired drone in list self.DRONE_IDS.
-        '''
-        # Rotation matrix of the base.
-        base_rot = np.array(p.getMatrixFromQuaternion(
-            self.quat[nth_drone, :])).reshape(3, 3)
-        # Simple draft model applied to the base/center of mass #
-        drag_factors = -1 * self.DRAG_COEFF * np.sum(
-            np.array(2 * np.pi * rpm / 60))
-        drag = np.dot(base_rot, drag_factors * np.array(self.vel[nth_drone, :]))
-        p.applyExternalForce(self.DRONE_IDS[nth_drone],
-                             4,
-                             forceObj=drag,
-                             posObj=[0, 0, 0],
-                             flags=p.LINK_FRAME,
-                             physicsClientId=self.PYB_CLIENT)
-
-    def _downwash(self, nth_drone):
-        '''PyBullet implementation of a ground effect model.
-
-        Based on experiments conducted at the Dynamic Systems Lab by SiQi Zhou.
-
-        Args:
-            nth_drone (int): The ordinal number/position of the desired drone in list self.DRONE_IDS.
-        '''
-        for i in range(self.NUM_DRONES):
-            delta_z = self.pos[i, 2] - self.pos[nth_drone, 2]
-            delta_xy = np.linalg.norm(
-                np.array(self.pos[i, 0:2]) - np.array(self.pos[nth_drone, 0:2]))
-            if delta_z > 0 and delta_xy < 10:  # Ignore drones more than 10 meters away
-                alpha = self.DW_COEFF_1 * (self.PROP_RADIUS / (4 * delta_z))**2
-                beta = self.DW_COEFF_2 * delta_z + self.DW_COEFF_3
-                downwash = [0, 0, -alpha * np.exp(-.5 * (delta_xy / beta)**2)]
-                p.applyExternalForce(self.DRONE_IDS[nth_drone],
-                                     4,
-                                     forceObj=downwash,
-                                     posObj=[0, 0, 0],
-                                     flags=p.LINK_FRAME,
-                                     physicsClientId=self.PYB_CLIENT)
-
+   
+    
     def _dynamics(self, rpm, nth_drone):
         '''Explicit dynamics implementation.
 
@@ -527,6 +403,7 @@ class BaseAviary(BenchmarkEnv):
         rpy_rates_deriv = np.dot(self.J_INV, torques)
         no_pybullet_dyn_accs = force_world_frame / self.MASS
         # Update state.
+        self.TIMESTEP = 0.0001
         vel = vel + self.TIMESTEP * no_pybullet_dyn_accs
         rpy_rates = rpy_rates + self.TIMESTEP * rpy_rates_deriv
         pos = pos + self.TIMESTEP * vel

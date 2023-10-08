@@ -38,20 +38,28 @@ class ConfigFactory:
         self.add_argument('--output_dir', type=str, help='output saving folder')
         self.add_argument('--restore', type=str, help='folder to reload from')
         # Need to explicitly provide from command line (if training for the 1st time).
-        self.add_argument('--algo', type=str, help='algorithm/controller')
-        self.add_argument('--task', type=str, help='task/environment')
+        self.add_argument('--algo', type=str,default='ppo', help='algorithm/controller')
+        self.add_argument('--task', type=str,default='quadrotor', help='task/environment')
         self.add_argument('--safety_filter', type=str, help='safety filter')
         self.add_argument('--overrides',
                           nargs='+',
                           type=str,
+                          default=['env/quadrotor_2D/quadrotor_2D_track.yaml'], 
                           help='override config files')
         self.add_argument('--kv_overrides',
                           nargs='+',
                           type=str,
+                          default=['algo_config.training=False'],
                           help='override key-value pairs')
+    
+
+  
 
     def merge(self, config_override=None):
         '''Creates experiment config object from command line and config files.'''
+        
+        
+        
         config_dict = self.base_dict
         args, _ = self.parser.parse_known_args()
         if config_override is not None:

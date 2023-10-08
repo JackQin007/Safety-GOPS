@@ -340,6 +340,7 @@ class RecordDataWrapper(gym.Wrapper):
         '''Wrapper for the gym.env step function.'''
 
         obs, reward, done, info = self.env.step(action)
+        print('action',action)
         # save to episode data container
         step_data = dict(
             obs=obs,

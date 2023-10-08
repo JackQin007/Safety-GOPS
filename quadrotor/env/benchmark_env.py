@@ -35,7 +35,6 @@ class Task(str, Enum):
 class Environment(str, Enum):
     '''Environment enumeration class.'''
 
-    CARTPOLE = 'cartpole'  # Cartpole system
     QUADROTOR = 'quadrotor'  # Quadrotor, both 1D and 2D
 
 

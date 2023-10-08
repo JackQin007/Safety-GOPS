@@ -7,7 +7,7 @@ import pickle
 import numpy as np
 import matplotlib.pyplot as plt
 
-from env.base_experiment import BaseExperiment
+from base_experiment import BaseExperiment
 from utils.registration import make
 from utils.configuration import ConfigFactory
 from env.benchmark_env import Task, Environment
@@ -36,6 +36,7 @@ def run(gui=True, n_episodes=1, n_steps=None, curr_path='.'):
     task = 'stab' if config.task_config.task == Task.STABILIZATION else 'track'
     if config.task == Environment.QUADROTOR:
         system = f'quadrotor_{str(config.task_config.quad_type)}D'
+        print(system)
     else:
         system = config.task
 
@@ -43,7 +44,10 @@ def run(gui=True, n_episodes=1, n_steps=None, curr_path='.'):
                        config.task,
                        **config.task_config)
     env = env_func()
-
+   
+    
+    
+    
     # Setup controller.
     ctrl = make(config.algo,
                 env_func,
@@ -62,12 +66,8 @@ def run(gui=True, n_episodes=1, n_steps=None, curr_path='.'):
     ctrl.close()
 
     if gui is True:
-        if system == Environment.CARTPOLE:
-            graph1_1 = 2
-            graph1_2 = 3
-            graph3_1 = 0
-            graph3_2 = 1
-        elif system == 'quadrotor_2D':
+     
+        if system == 'quadrotor_2D':
             graph1_1 = 4
             graph1_2 = 5
             graph3_1 = 0
@@ -86,15 +86,8 @@ def run(gui=True, n_episodes=1, n_steps=None, curr_path='.'):
         ax.set_box_aspect(0.5)
         ax.legend(loc='upper right')
 
-        if config.task_config.task == Task.TRAJ_TRACKING and config.task == Environment.CARTPOLE:
-            _, ax2 = plt.subplots()
-            ax2.plot(np.linspace(0, 20, results['obs'][0].shape[0]), results['obs'][0][:, 0], 'r--', label='RL Trajectory')
-            ax2.plot(np.linspace(0, 20, results['obs'][0].shape[0]), env.X_GOAL[:, 0], 'b', label='Reference')
-            ax2.set_xlabel(r'Time')
-            ax2.set_ylabel(r'X')
-            ax2.set_box_aspect(0.5)
-            ax2.legend(loc='upper right')
-        elif config.task == Environment.QUADROTOR:
+
+        if config.task == Environment.QUADROTOR:
             _, ax2 = plt.subplots()
             ax2.plot(results['obs'][0][:, graph3_1 + 1], results['obs'][0][:, graph3_2 + 1], 'r--', label='RL Trajectory')
             ax2.set_xlabel(r'x_dot')
@@ -108,9 +101,8 @@ def run(gui=True, n_episodes=1, n_steps=None, curr_path='.'):
             ax3.plot(env.X_GOAL[:, graph3_1], env.X_GOAL[:, graph3_2], 'g--', label='Reference')
         ax3.scatter(results['obs'][0][0, graph3_1], results['obs'][0][0, graph3_2], color='g', marker='o', s=100, label='Initial State')
         ax3.set_xlabel(r'X')
-        if config.task == Environment.CARTPOLE:
-            ax3.set_ylabel(r'Vel')
-        elif config.task == Environment.QUADROTOR:
+
+        if config.task == Environment.QUADROTOR:
             ax3.set_ylabel(r'Z')
         ax3.set_box_aspect(0.5)
         ax3.legend(loc='upper right')

@@ -27,14 +27,22 @@ python3 rl_experiment.py \
 ```
 
 
-### 3D Quadrotor Lemniscate Trajectory Tracking with PID
+### 3D Quadrotor Lemniscate Trajectory Tracking with GUI by PPO
 
 ```bash
-cd ~/code/quadrotor/ 
-python3 pid_experiment.py \
-    --algo pid \
+cd quadrotor/ 
+python3 rl_experiment_gui.py \
+    --algo ppo \
     --task quadrotor \
     --overrides \
         env/quadrotor_3D/quadrotor_3D_tracking.yaml 
+
+
+
+python3 rl_experiment_gui.py \
+    --algo ppo \
+    --task quadrotor \
+    --overrides \
+        env/quadrotor_3D/quadrotor_3D_tracking.yaml
 
 ```

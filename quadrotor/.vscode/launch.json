@@ -5,17 +5,15 @@
             "name": "Debug quadrotor.py",
             "type": "python",
             "request": "launch",
-            "program": "${workspaceFolder}/rl_experiment_copy.py",
+            "program": "${workspaceFolder}/rl_experiment_gui.py",
             "args": [
                 "--algo",
                 "ppo",
                 "--task",
                 "quadrotor",
                 "--overrides",
-                "env/quadrotor_3D/quadrotor_3D_track.yaml",
-                "env/quadrotor_3D/ppo_quadrotor_3D.yaml",
-                "--kv_overrides",
-                "algo_config.training=False"
+                "env/quadrotor_3D/quadrotor_3D_tracking.yaml",
+             
             ],
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
