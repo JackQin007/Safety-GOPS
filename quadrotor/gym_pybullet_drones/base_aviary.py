@@ -403,7 +403,7 @@ class BaseAviary(BenchmarkEnv):
         rpy_rates_deriv = np.dot(self.J_INV, torques)
         no_pybullet_dyn_accs = force_world_frame / self.MASS
         # Update state.
-        self.TIMESTEP = 0.0001
+        self.TIMESTEP = 0.001
         vel = vel + self.TIMESTEP * no_pybullet_dyn_accs
         rpy_rates = rpy_rates + self.TIMESTEP * rpy_rates_deriv
         pos = pos + self.TIMESTEP * vel

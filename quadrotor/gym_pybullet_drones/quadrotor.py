@@ -5,6 +5,7 @@ Based on UTIAS Dynamic Systems Lab's gym-pybullet-drones:
 '''
 
 import math
+import torch
 from copy import deepcopy
 
 import casadi as cs
@@ -17,7 +18,7 @@ from env.constraints import GENERAL_CONSTRAINTS
 from env.math_and_models.symbolic_systems import SymbolicModel
 from gym_pybullet_drones.base_aviary import BaseAviary
 from gym_pybullet_drones.quadrotor_utils import QuadType, cmd2pwm, pwm2rpm
-from env.math_and_models.transformations import transform_trajectory, csRotXYZ
+from env.math_and_models.transformations import transform_trajectory, torchRotXYZ
 
 
 class Quadrotor(BaseAviary):
@@ -353,14 +354,6 @@ class Quadrotor(BaseAviary):
         self.OVERRIDDEN_QUAD_MASS = prop_values['M']
         self.OVERRIDDEN_QUAD_INERTIA = [prop_values['Ixx'], prop_values['Iyy'], prop_values['Izz']]
 
-        # Override inertial properties.
-        p.changeDynamics(
-            self.DRONE_IDS[0],
-            linkIndex=-1,  # Base link.
-            mass=self.OVERRIDDEN_QUAD_MASS,
-            localInertiaDiagonal=self.OVERRIDDEN_QUAD_INERTIA,
-            physicsClientId=self.PYB_CLIENT)
-
         # Randomize initial state.
         init_values = {init_name: self.__dict__[init_name.upper()]
                        for init_name in self.INIT_STATE_LABELS[self.QUAD_TYPE]}
@@ -373,17 +366,8 @@ class Quadrotor(BaseAviary):
             INIT_ANG_VEL = [0, init_values.get('init_theta_dot', 0.), 0]
         else:
             INIT_ANG_VEL = [init_values.get('init_' + k, 0.) for k in ['p', 'q', 'r']]  # TODO: transform from body rates.
-        p.resetBasePositionAndOrientation(self.DRONE_IDS[0], INIT_XYZ,
-                                          p.getQuaternionFromEuler(INIT_RPY),
-                                          physicsClientId=self.PYB_CLIENT)
-        p.resetBaseVelocity(self.DRONE_IDS[0], INIT_VEL, INIT_ANG_VEL,
-                            physicsClientId=self.PYB_CLIENT)
-
-        # Update BaseAviary internal variables before calling self._get_observation().
-        self._update_and_store_kinematic_information()
         obs, info = self._get_observation(), self._get_reset_info()
         obs, info = super().after_reset(obs, info)
-
         # Return either an observation and dictionary or just the observation.
         if self.INFO_IN_RESET:
             return obs, info
@@ -408,7 +392,6 @@ class Quadrotor(BaseAviary):
 
         # Get the preprocessed rpm for each motor
         rpm = super().before_step(action)
-
         # Determine disturbance force.
         disturb_force = None
         passive_disturb = 'dynamics' in self.disturbances
@@ -443,29 +426,8 @@ class Quadrotor(BaseAviary):
         obs, rew, done, info = super().after_step(obs, rew, done, info)
         return obs, rew, done, info
 
-    def render(self, mode='human'):
-        '''Retrieves a frame from PyBullet rendering.
-
-        Args:
-            mode (str): Unused.
-
-        Returns:
-            frame (ndarray): A multidimensional array with the RGB frame captured by PyBullet's camera.
-        '''
-
-        [w, h, rgb, _, _] = p.getCameraImage(width=self.RENDER_WIDTH,
-                                             height=self.RENDER_HEIGHT,
-                                             shadow=1,
-                                             viewMatrix=self.CAM_VIEW,
-                                             projectionMatrix=self.CAM_PRO,
-                                             renderer=p.ER_TINY_RENDERER,
-                                             flags=p.ER_SEGMENTATION_MASK_OBJECT_AND_LINKINDEX,
-                                             physicsClientId=self.PYB_CLIENT)
-        # Image.fromarray(np.reshape(rgb, (h, w, 4)), 'RGBA').show()
-        return np.reshape(rgb, (h, w, 4))
-
     def _setup_symbolic(self, prior_prop={}, **kwargs):
-        '''Creates symbolic (CasADi) models for dynamics, observation, and cost.
+        '''Creates symbolic (PyTorch) models for dynamics, observation, and cost.
 
         Args:
             prior_prop (dict): specify the prior inertial prop to use in the symbolic model.
@@ -474,104 +436,154 @@ class Quadrotor(BaseAviary):
         Iyy = prior_prop.get('Iyy', self.J[1, 1])
         g, l = self.GRAVITY_ACC, self.L
         dt = self.CTRL_TIMESTEP
-        # Define states.
-        z = cs.MX.sym('z')
-        z_dot = cs.MX.sym('z_dot')
+
+        # Define states and inputs as PyTorch tensors
+        z = torch.tensor(0.0, requires_grad=True)
+        z_dot = torch.tensor(0.0, requires_grad=True)
         u_eq = m * g
+
         if self.QUAD_TYPE == QuadType.ONE_D:
             nx, nu = 2, 1
-            # Define states.
-            X = cs.vertcat(z, z_dot)
-            # Define input thrust.
-            T = cs.MX.sym('T')
-            U = cs.vertcat(T)
-            # Define dynamics equations.
-            X_dot = cs.vertcat(z_dot, T / m - g)
-            # Define observation equation.
-            Y = cs.vertcat(z, z_dot)
-        elif self.QUAD_TYPE == QuadType.TWO_D:
+            # Define states and input thrust
+            X = torch.stack([z, z_dot])
+            T = torch.tensor(0.0, requires_grad=True)
+            U = torch.stack([T])
+
+            # Define dynamics equations (replace with your PyTorch model)
+            X_dot = self.quadrotor_model(X, U)
+
+            # Define observation equation
+            Y = X
+        # Add other cases for QUAD_TYPE (TWO_D, THREE_D) as needed
+        if self.QUAD_TYPE == QuadType.TWO_D:
             nx, nu = 6, 2
             # Define states.
-            x = cs.MX.sym('x')
-            x_dot = cs.MX.sym('x_dot')
-            theta = cs.MX.sym('theta')
-            theta_dot = cs.MX.sym('theta_dot')
-            X = cs.vertcat(x, x_dot, z, z_dot, theta, theta_dot)
+            x = torch.tensor([0.0], requires_grad=True)
+            x_dot = torch.tensor([0.0], requires_grad=True)
+            z = torch.tensor([0.0], requires_grad=True)
+            z_dot = torch.tensor([0.0], requires_grad=True)
+            theta = torch.tensor([0.0], requires_grad=True)
+            theta_dot = torch.tensor([0.0], requires_grad=True)
+
+            # 连接这些张量
+            X = torch.cat((x, x_dot, z, z_dot, theta, theta_dot), dim=0)
             # Define input thrusts.
-            T1 = cs.MX.sym('T1')
-            T2 = cs.MX.sym('T2')
-            U = cs.vertcat(T1, T2)
+            T1 = torch.tensor([0.0], requires_grad=True)
+            T2 = torch.tensor([0.0], requires_grad=True)
+            U = torch.cat((T1, T2))
             # Define dynamics equations.
-            X_dot = cs.vertcat(x_dot,
-                               cs.sin(theta) * (T1 + T2) / m, z_dot,
-                               cs.cos(theta) * (T1 + T2) / m - g, theta_dot,
-                               l * (T2 - T1) / Iyy / np.sqrt(2))
+            X_dot = torch.cat((x_dot,
+                            torch.sin(theta) * (T1 + T2) / m, z_dot,
+                            torch.cos(theta) * (T1 + T2) / m - g, theta_dot,
+                            l * (T2 - T1) / Iyy / torch.sqrt(torch.tensor(2.0))))
             # Define observation.
-            Y = cs.vertcat(x, x_dot, z, z_dot, theta, theta_dot)
+            Y = torch.cat((x, x_dot, z, z_dot, theta, theta_dot))
         elif self.QUAD_TYPE == QuadType.THREE_D:
             nx, nu = 12, 4
             Ixx = prior_prop.get('Ixx', self.J[0, 0])
             Izz = prior_prop.get('Izz', self.J[2, 2])
-            J = cs.blockcat([[Ixx, 0.0, 0.0],
-                             [0.0, Iyy, 0.0],
-                             [0.0, 0.0, Izz]])
-            Jinv = cs.blockcat([[1.0 / Ixx, 0.0, 0.0],
+            J = torch.tensor([[Ixx, 0.0, 0.0],
+                            [0.0, Iyy, 0.0],
+                            [0.0, 0.0, Izz]], requires_grad=True)
+            Jinv = torch.tensor([[1.0 / Ixx, 0.0, 0.0],
                                 [0.0, 1.0 / Iyy, 0.0],
-                                [0.0, 0.0, 1.0 / Izz]])
+                                [0.0, 0.0, 1.0 / Izz]], requires_grad=True)
             gamma = self.KM / self.KF
-            x = cs.MX.sym('x')
-            y = cs.MX.sym('y')
-            phi = cs.MX.sym('phi')  # Roll
-            theta = cs.MX.sym('theta')  # Pitch
-            psi = cs.MX.sym('psi')  # Yaw
-            x_dot = cs.MX.sym('x_dot')
-            y_dot = cs.MX.sym('y_dot')
-            p_body = cs.MX.sym('p')  # Body frame roll rate
-            q_body = cs.MX.sym('q')  # body frame pith rate
-            r_body = cs.MX.sym('r')  # body frame yaw rate
-            # PyBullet Euler angles use the SDFormat for rotation matrices.
-            Rob = csRotXYZ(phi, theta, psi)  # rotation matrix transforming a vector in the body frame to the world frame.
+            # x = torch.tensor([0.0], requires_grad=True)
+            # y = torch.tensor([0.0], requires_grad=True)
+            # phi = torch.tensor([0.0], requires_grad=True)  # Roll
+            # theta = torch.tensor([0.0], requires_grad=True)  # Pitch
+            # psi = torch.tensor([0.0], requires_grad=True)  # Yaw
+            # x_dot = torch.tensor([0.0], requires_grad=True)
+            # y_dot = torch.tensor([0.0], requires_grad=True)
+            # p_body = torch.tensor([0.0], requires_grad=True)  # Body frame roll rate
+            # q_body = torch.tensor([0.0], requires_grad=True)  # Body frame pitch rate
+            # r_body = torch.tensor([0.0], requires_grad=True)  # Body frame yaw rate
+            # 示例：将零维张量转换为具有正确形状的张量
+            x = torch.tensor([0.0], requires_grad=True)
+            y = torch.tensor([0.0], requires_grad=True)
+            z = torch.tensor([0.0], requires_grad=True)
+            # 为这些张量指定形状
+            x_dot = torch.tensor([0.0], requires_grad=True)
+            y_dot = torch.tensor([0.0], requires_grad=True)
+            z_dot = torch.tensor([0.0], requires_grad=True)
+            phi = torch.tensor([0.0], requires_grad=True)
+            theta = torch.tensor([0.0], requires_grad=True)
+            psi = torch.tensor([0.0], requires_grad=True)
+            p_body = torch.tensor([0.0], requires_grad=True)
+            q_body = torch.tensor([0.0], requires_grad=True)
+            r_body = torch.tensor([0.0], requires_grad=True)
 
             # Define state variables.
-            X = cs.vertcat(x, x_dot, y, y_dot, z, z_dot, phi, theta, psi, p_body, q_body, r_body)
+            X = torch.cat((x, x_dot, y, y_dot, z, z_dot, phi, theta, psi, p_body, q_body, r_body))
+
 
             # Define inputs.
-            f1 = cs.MX.sym('f1')
-            f2 = cs.MX.sym('f2')
-            f3 = cs.MX.sym('f3')
-            f4 = cs.MX.sym('f4')
-            U = cs.vertcat(f1, f2, f3, f4)
+            f1 = torch.tensor([0.0], requires_grad=True)
+            f2 = torch.tensor([0.0], requires_grad=True)
+            f3 = torch.tensor([0.0], requires_grad=True)
+            f4 = torch.tensor([0.0], requires_grad=True)
 
-            # From Ch. 2 of Luis, Carlos, and Jérôme Le Ny. 'Design of a trajectory tracking controller for a
-            # nanoquadcopter.' arXiv preprint arXiv:1608.05786 (2016).
-
+            U = torch.cat((f1, f2, f3, f4))
+            Rob = torchRotXYZ(phi, theta, psi)  # rotation matrix transforming a vector in the body frame to the world frame.
             # Defining the dynamics function.
             # We are using the velocity of the base wrt to the world frame expressed in the world frame.
             # Note that the reference expresses this in the body frame.
-            oVdot_cg_o = Rob @ cs.vertcat(0, 0, f1 + f2 + f3 + f4) / m - cs.vertcat(0, 0, g)
+            oVdot_cg_o = Rob @ torch.cat((torch.tensor([0.0]), torch.tensor([0.0]), f1 + f2 + f3 + f4)) / m - torch.cat((torch.tensor([0.0]), torch.tensor([0.0]), torch.tensor([g])))
             pos_ddot = oVdot_cg_o
-            pos_dot = cs.vertcat(x_dot, y_dot, z_dot)
-            Mb = cs.vertcat(l / cs.sqrt(2.0) * (f1 + f2 - f3 - f4),
-                            l / cs.sqrt(2.0) * (-f1 + f2 + f3 - f4),
-                            gamma * (-f1 + f2 - f3 + f4))
-            rate_dot = Jinv @ (Mb - (cs.skew(cs.vertcat(p_body, q_body, r_body)) @ J @ cs.vertcat(p_body, q_body, r_body)))
-            ang_dot = cs.blockcat([[1, cs.sin(phi) * cs.tan(theta), cs.cos(phi) * cs.tan(theta)],
-                                   [0, cs.cos(phi), -cs.sin(phi)],
-                                   [0, cs.sin(phi) / cs.cos(theta), cs.cos(phi) / cs.cos(theta)]]) @ cs.vertcat(p_body, q_body, r_body)
-            X_dot = cs.vertcat(pos_dot[0], pos_ddot[0], pos_dot[1], pos_ddot[1], pos_dot[2], pos_ddot[2], ang_dot, rate_dot)
+            pos_dot = torch.cat((x_dot, y_dot, z_dot))
+            Mb = torch.cat((l / torch.sqrt(torch.tensor(2.0)) * (f1 + f2 - f3 - f4),
+                            l / torch.sqrt(torch.tensor(2.0)) * (-f1 + f2 + f3 - f4),
+                            gamma * (-f1 + f2 - f3 + f4)))
 
-            Y = cs.vertcat(x, x_dot, y, y_dot, z, z_dot, phi, theta, psi, p_body, q_body, r_body)
+            def skew_matrix(angular_velocity):
+                # Create a 3x3 skew-symmetric matrix from a 3D angular velocity vector
+                return torch.tensor([[0, -angular_velocity[2], angular_velocity[1]],
+                                    [angular_velocity[2], 0, -angular_velocity[0]],
+                                    [-angular_velocity[1], angular_velocity[0], 0]])
+      
+            rate_dot = Jinv.float() @ (skew_matrix(torch.cat((p_body.float(), q_body.float(), r_body.float()))) @ J.float() @ torch.cat((p_body.float(), q_body.float(), r_body.float())))
+            # Define the components of the rotation matrix
+            R1 = torch.tensor([[1.0, 0.0, 0.0],
+                            [0.0, torch.cos(phi), -torch.sin(phi)],
+                            [0.0, torch.sin(phi), torch.cos(phi)]])
+            R2 = torch.tensor([[torch.cos(theta), 0.0, torch.sin(theta)],
+                            [0.0, 1.0, 0.0],
+                            [-torch.sin(theta), 0.0, torch.cos(theta)]])
+            R3 = torch.tensor([[torch.cos(psi), -torch.sin(psi), 0.0],
+                            [torch.sin(psi), torch.cos(psi), 0.0],
+                            [0.0, 0.0, 1.0]])
+
+            # Compute the angular velocity vector
+            ang_dot = torch.matmul(torch.matmul(R1, R2), R3) @ torch.cat((p_body, q_body, r_body))
+        
+      
+            # Flatten ang_dot and rate_dot into one-dimensional tensors
+            ang_dot_flat = ang_dot.view(-1)
+            rate_dot_flat = rate_dot.view(-1)
+            # Concatenate all tensors
+            X_dot = torch.cat((pos_dot, pos_ddot, ang_dot_flat, rate_dot_flat))
+
+            Y = torch.cat((x, x_dot, y, y_dot, z, z_dot, phi, theta, psi, p_body, q_body, r_body))
+        
+ 
         # Set the equilibrium values for linearizations.
-        X_EQ = np.zeros(self.state_dim)
-        U_EQ = np.ones(self.action_dim) * u_eq / self.action_dim
+        X_EQ = torch.zeros(self.state_dim, requires_grad=True)
+        U_EQ = torch.ones(self.action_dim) * u_eq / self.action_dim
+
         # Define cost (quadratic form).
-        Q = cs.MX.sym('Q', nx, nx)
-        R = cs.MX.sym('R', nu, nu)
-        Xr = cs.MX.sym('Xr', nx, 1)
-        Ur = cs.MX.sym('Ur', nu, 1)
-        cost_func = 0.5 * (X - Xr).T @ Q @ (X - Xr) + 0.5 * (U - Ur).T @ R @ (U - Ur)
+        Q = torch.eye(nx, requires_grad=True)
+        R = torch.eye(nu, requires_grad=True)
+        Xr = torch.zeros(nx, requires_grad=True)
+        Ur = torch.zeros(nu, requires_grad=True)
+
         # Define dynamics and cost dictionaries.
-        dynamics = {'dyn_eqn': X_dot, 'obs_eqn': Y, 'vars': {'X': X, 'U': U}}
+        dynamics = {
+            'dyn_eqn': X_dot,  # This should be a function that calculates X_dot using PyTorch
+            'obs_eqn': Y,  # This should be a function that calculates Y using PyTorch
+            'vars': {'X': X, 'U': U}
+        }
+        cost_func = 0.5 * torch.matmul((X - Xr).T, torch.matmul(Q, X - Xr)) + 0.5 * torch.matmul((U - Ur).T, torch.matmul(R, U - Ur))
         cost = {
             'cost_func': cost_func,
             'vars': {
@@ -583,19 +595,157 @@ class Quadrotor(BaseAviary):
                 'R': R
             }
         }
+
         # Additional params to cache
         params = {
-            # prior inertial properties
             'quad_mass': m,
             'quad_Iyy': Iyy,
             'quad_Ixx': Ixx if 'Ixx' in locals() else None,
             'quad_Izz': Izz if 'Izz' in locals() else None,
-            # equilibrium point for linearization
             'X_EQ': X_EQ,
             'U_EQ': U_EQ,
         }
-        # Setup symbolic model.
-        self.symbolic = SymbolicModel(dynamics=dynamics, cost=cost, dt=dt, params=params)
+
+        # Setup symbolic model (you can define your own class or data structure)
+        self.symbolic = {
+            'dynamics': dynamics,
+            'cost': cost,
+            'dt': dt,
+            'params': params
+        }
+
+    # def _setup_symbolic(self, prior_prop={}, **kwargs):
+    #     '''Creates symbolic (CasADi) models for dynamics, observation, and cost.
+
+    #     Args:
+    #         prior_prop (dict): specify the prior inertial prop to use in the symbolic model.
+    #     '''
+    #     m = prior_prop.get('M', self.MASS)
+    #     Iyy = prior_prop.get('Iyy', self.J[1, 1])
+    #     g, l = self.GRAVITY_ACC, self.L
+    #     dt = self.CTRL_TIMESTEP
+    #     # Define states.
+    #     z = cs.MX.sym('z')
+    #     z_dot = cs.MX.sym('z_dot')
+    #     u_eq = m * g
+    #     if self.QUAD_TYPE == QuadType.ONE_D:
+    #         nx, nu = 2, 1
+    #         # Define states.
+    #         X = cs.vertcat(z, z_dot)
+    #         # Define input thrust.
+    #         T = cs.MX.sym('T')
+    #         U = cs.vertcat(T)
+    #         # Define dynamics equations.
+    #         X_dot = cs.vertcat(z_dot, T / m - g)
+    #         # Define observation equation.
+    #         Y = cs.vertcat(z, z_dot)
+    #     elif self.QUAD_TYPE == QuadType.TWO_D:
+    #         nx, nu = 6, 2
+    #         # Define states.
+    #         x = cs.MX.sym('x')
+    #         x_dot = cs.MX.sym('x_dot')
+    #         theta = cs.MX.sym('theta')
+    #         theta_dot = cs.MX.sym('theta_dot')
+    #         X = cs.vertcat(x, x_dot, z, z_dot, theta, theta_dot)
+    #         # Define input thrusts.
+    #         T1 = cs.MX.sym('T1')
+    #         T2 = cs.MX.sym('T2')
+    #         U = cs.vertcat(T1, T2)
+    #         # Define dynamics equations.
+    #         X_dot = cs.vertcat(x_dot,
+    #                            cs.sin(theta) * (T1 + T2) / m, z_dot,
+    #                            cs.cos(theta) * (T1 + T2) / m - g, theta_dot,
+    #                            l * (T2 - T1) / Iyy / np.sqrt(2))
+    #         # Define observation.
+    #         Y = cs.vertcat(x, x_dot, z, z_dot, theta, theta_dot)
+    #     elif self.QUAD_TYPE == QuadType.THREE_D:
+    #         nx, nu = 12, 4
+    #         Ixx = prior_prop.get('Ixx', self.J[0, 0])
+    #         Izz = prior_prop.get('Izz', self.J[2, 2])
+    #         J = cs.blockcat([[Ixx, 0.0, 0.0],
+    #                          [0.0, Iyy, 0.0],
+    #                          [0.0, 0.0, Izz]])
+    #         Jinv = cs.blockcat([[1.0 / Ixx, 0.0, 0.0],
+    #                             [0.0, 1.0 / Iyy, 0.0],
+    #                             [0.0, 0.0, 1.0 / Izz]])
+    #         gamma = self.KM / self.KF
+    #         x = cs.MX.sym('x')
+    #         y = cs.MX.sym('y')
+    #         phi = cs.MX.sym('phi')  # Roll
+    #         theta = cs.MX.sym('theta')  # Pitch
+    #         psi = cs.MX.sym('psi')  # Yaw
+    #         x_dot = cs.MX.sym('x_dot')
+    #         y_dot = cs.MX.sym('y_dot')
+    #         p_body = cs.MX.sym('p')  # Body frame roll rate
+    #         q_body = cs.MX.sym('q')  # body frame pith rate
+    #         r_body = cs.MX.sym('r')  # body frame yaw rate
+    #         # PyBullet Euler angles use the SDFormat for rotation matrices.
+    #         Rob = csRotXYZ(phi, theta, psi)  # rotation matrix transforming a vector in the body frame to the world frame.
+
+    #         # Define state variables.
+    #         X = cs.vertcat(x, x_dot, y, y_dot, z, z_dot, phi, theta, psi, p_body, q_body, r_body)
+
+    #         # Define inputs.
+    #         f1 = cs.MX.sym('f1')
+    #         f2 = cs.MX.sym('f2')
+    #         f3 = cs.MX.sym('f3')
+    #         f4 = cs.MX.sym('f4')
+    #         U = cs.vertcat(f1, f2, f3, f4)
+
+    #         # From Ch. 2 of Luis, Carlos, and Jérôme Le Ny. 'Design of a trajectory tracking controller for a
+    #         # nanoquadcopter.' arXiv preprint arXiv:1608.05786 (2016).
+
+    #         # Defining the dynamics function.
+    #         # We are using the velocity of the base wrt to the world frame expressed in the world frame.
+    #         # Note that the reference expresses this in the body frame.
+    #         oVdot_cg_o = Rob @ cs.vertcat(0, 0, f1 + f2 + f3 + f4) / m - cs.vertcat(0, 0, g)
+    #         pos_ddot = oVdot_cg_o
+    #         pos_dot = cs.vertcat(x_dot, y_dot, z_dot)
+    #         Mb = cs.vertcat(l / cs.sqrt(2.0) * (f1 + f2 - f3 - f4),
+    #                         l / cs.sqrt(2.0) * (-f1 + f2 + f3 - f4),
+    #                         gamma * (-f1 + f2 - f3 + f4))
+    #         rate_dot = Jinv @ (Mb - (cs.skew(cs.vertcat(p_body, q_body, r_body)) @ J @ cs.vertcat(p_body, q_body, r_body)))
+    #         ang_dot = cs.blockcat([[1, cs.sin(phi) * cs.tan(theta), cs.cos(phi) * cs.tan(theta)],
+    #                                [0, cs.cos(phi), -cs.sin(phi)],
+    #                                [0, cs.sin(phi) / cs.cos(theta), cs.cos(phi) / cs.cos(theta)]]) @ cs.vertcat(p_body, q_body, r_body)
+    #         X_dot = cs.vertcat(pos_dot[0], pos_ddot[0], pos_dot[1], pos_ddot[1], pos_dot[2], pos_ddot[2], ang_dot, rate_dot)
+
+    #         Y = cs.vertcat(x, x_dot, y, y_dot, z, z_dot, phi, theta, psi, p_body, q_body, r_body)
+    #     # Set the equilibrium values for linearizations.
+    #     X_EQ = np.zeros(self.state_dim)
+    #     U_EQ = np.ones(self.action_dim) * u_eq / self.action_dim
+    #     # Define cost (quadratic form).
+    #     Q = cs.MX.sym('Q', nx, nx)
+    #     R = cs.MX.sym('R', nu, nu)
+    #     Xr = cs.MX.sym('Xr', nx, 1)
+    #     Ur = cs.MX.sym('Ur', nu, 1)
+    #     cost_func = 0.5 * (X - Xr).T @ Q @ (X - Xr) + 0.5 * (U - Ur).T @ R @ (U - Ur)
+    #     # Define dynamics and cost dictionaries.
+    #     dynamics = {'dyn_eqn': X_dot, 'obs_eqn': Y, 'vars': {'X': X, 'U': U}}
+    #     cost = {
+    #         'cost_func': cost_func,
+    #         'vars': {
+    #             'X': X,
+    #             'U': U,
+    #             'Xr': Xr,
+    #             'Ur': Ur,
+    #             'Q': Q,
+    #             'R': R
+    #         }
+    #     }
+    #     # Additional params to cache
+    #     params = {
+    #         # prior inertial properties
+    #         'quad_mass': m,
+    #         'quad_Iyy': Iyy,
+    #         'quad_Ixx': Ixx if 'Ixx' in locals() else None,
+    #         'quad_Izz': Izz if 'Izz' in locals() else None,
+    #         # equilibrium point for linearization
+    #         'X_EQ': X_EQ,
+    #         'U_EQ': U_EQ,
+    #     }
+    #     # Setup symbolic model.
+    #     self.symbolic = SymbolicModel(dynamics=dynamics, cost=cost, dt=dt, params=params)
 
     def _set_action_space(self):
         '''Sets the action space of the environment.'''

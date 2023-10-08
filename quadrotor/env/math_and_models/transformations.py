@@ -123,53 +123,96 @@ def transform_trajectory(pos, vel, trans_info={}):
     trans_vel = np.matmul(aug_vel, M.transpose())[:, :3]  # (T,3)
     return trans_pos, trans_vel
 
+import torch
 
-def csRotZ(psi):
+def torchRotZ(psi):
     '''Rotation matrix about Z axis following SDFormat http://sdformat.org/tutorials?tut=specify_pose&cat=specification&.
 
     Args:
       psi: Scalar rotation
 
     Returns:
-      R: casadi Rotation matrix
+      R: torch Rotation matrix
     '''
-    R = cs.blockcat([[cs.cos(psi), -cs.sin(psi), 0],
-                     [cs.sin(psi),  cs.cos(psi), 0],
-                     [          0,            0, 1]])
+    R = torch.tensor([[torch.cos(psi), -torch.sin(psi), 0],
+                      [torch.sin(psi), torch.cos(psi), 0],
+                      [0, 0, 1]])
     return R
 
-
-def csRotY(theta):
+def torchRotY(theta):
     '''Rotation matrix about Y axis following SDFormat http://sdformat.org/tutorials?tut=specify_pose&cat=specification&.
 
     Args:
       theta: Scalar rotation
 
     Returns:
-      R: casadi Rotation matrix
+      R: torch Rotation matrix
     '''
-    R = cs.blockcat([[ cs.cos(theta), 0, cs.sin(theta)],
-                     [             0, 1,             0],
-                     [-cs.sin(theta), 0, cs.cos(theta)]])
+    R = torch.tensor([[torch.cos(theta), 0, torch.sin(theta)],
+                      [0, 1, 0],
+                      [-torch.sin(theta), 0, torch.cos(theta)]])
     return R
 
-
-def csRotX(phi):
+def torchRotX(phi):
     '''Rotation matrix about X axis following SDFormat http://sdformat.org/tutorials?tut=specify_pose&cat=specification&.
 
     Args:
       phi: Scalar rotation
 
     Returns:
-      R: casadi Rotation matrix
+      R: torch Rotation matrix
     '''
-    R = cs.blockcat([[ 1,           0,            0],
-                     [ 0, cs.cos(phi), -cs.sin(phi)],
-                     [ 0, cs.sin(phi),  cs.cos(phi)]])
+    R = torch.tensor([[1, 0, 0],
+                      [0, torch.cos(phi), -torch.sin(phi)],
+                      [0, torch.sin(phi), torch.cos(phi)]])
     return R
 
+# def csRotZ(psi):
+#     '''Rotation matrix about Z axis following SDFormat http://sdformat.org/tutorials?tut=specify_pose&cat=specification&.
 
-def csRotXYZ(phi, theta, psi):
+#     Args:
+#       psi: Scalar rotation
+
+#     Returns:
+#       R: casadi Rotation matrix
+#     '''
+#     R = cs.blockcat([[cs.cos(psi), -cs.sin(psi), 0],
+#                      [cs.sin(psi),  cs.cos(psi), 0],
+#                      [          0,            0, 1]])
+#     return R
+
+
+# def csRotY(theta):
+#     '''Rotation matrix about Y axis following SDFormat http://sdformat.org/tutorials?tut=specify_pose&cat=specification&.
+
+#     Args:
+#       theta: Scalar rotation
+
+#     Returns:
+#       R: casadi Rotation matrix
+#     '''
+#     R = cs.blockcat([[ cs.cos(theta), 0, cs.sin(theta)],
+#                      [             0, 1,             0],
+#                      [-cs.sin(theta), 0, cs.cos(theta)]])
+#     return R
+
+
+# def csRotX(phi):
+#     '''Rotation matrix about X axis following SDFormat http://sdformat.org/tutorials?tut=specify_pose&cat=specification&.
+
+#     Args:
+#       phi: Scalar rotation
+
+#     Returns:
+#       R: casadi Rotation matrix
+#     '''
+#     R = cs.blockcat([[ 1,           0,            0],
+#                      [ 0, cs.cos(phi), -cs.sin(phi)],
+#                      [ 0, cs.sin(phi),  cs.cos(phi)]])
+#     return R
+
+
+def torchRotXYZ(phi, theta, psi):
     '''Rotation matrix from euller angles  following SDFormat http://sdformat.org/tutorials?tut=specify_pose&cat=specification&.
     This represents the extrinsic X-Y-Z (or quivalently the intrinsic Z-Y-X (3-2-1)) euler angle rotation.
 
@@ -181,7 +224,7 @@ def csRotXYZ(phi, theta, psi):
     Returns:
       R: casadi Rotation matrix
     '''
-    R = csRotZ(psi) @ csRotY(theta) @ csRotX(phi)
+    R = torchRotZ(psi) @ torchRotY(theta) @ torchRotX(phi)
 
     return R
 
@@ -198,7 +241,7 @@ def RotXYZ(phi, theta, psi):
     Returns:
       R: casadi Rotation matrix
     '''
-    R = csRotXYZ(phi, theta, psi).toarray()
+    R = torchRotXYZ(phi, theta, psi).toarray()
     return R
 
 

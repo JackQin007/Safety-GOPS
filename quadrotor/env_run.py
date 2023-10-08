@@ -14,7 +14,7 @@ def main():
                         **config.task_config)
     env = env_func()
     env.reset()
-    obs, reward, done, info = env.step([-1.8674284 ,-0.7863587])
+    obs, reward, done, info = env.step(action = [-1.8674284 ,-0.7863587])
     print('obs, reward, done, info',obs,reward,done,info)
 
 if __name__ == '__main__':

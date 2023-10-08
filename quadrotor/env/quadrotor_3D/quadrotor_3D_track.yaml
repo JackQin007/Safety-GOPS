@@ -3,7 +3,7 @@ task_config:
   info_in_reset: True
   ctrl_freq: 50
   pyb_freq: 1000
-  physics: pyb
+  physics: dyn
   quad_type: 3
   normalized_rl_action_space: True
 

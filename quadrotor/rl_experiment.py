@@ -36,7 +36,6 @@ def run(gui=True, n_episodes=1, n_steps=None, curr_path='.'):
     task = 'stab' if config.task_config.task == Task.STABILIZATION else 'track'
     if config.task == Environment.QUADROTOR:
         system = f'quadrotor_{str(config.task_config.quad_type)}D'
-        print(system)
     else:
         system = config.task
 
@@ -44,9 +43,6 @@ def run(gui=True, n_episodes=1, n_steps=None, curr_path='.'):
                        config.task,
                        **config.task_config)
     env = env_func()
-   
-    
-    
     
     # Setup controller.
     ctrl = make(config.algo,
@@ -55,8 +51,9 @@ def run(gui=True, n_episodes=1, n_steps=None, curr_path='.'):
                 output_dir=curr_path + '/temp')
 
     # Load state_dict from trained.
+    print(f'------------------------\n{curr_path}/ppo/models/{config.algo}/{config.algo}_model_{system}_{task}.pt\n---------------------------------')
+    
     ctrl.load(f'{curr_path}/ppo/models/{config.algo}/{config.algo}_model_{system}_{task}.pt')
-
     # Remove temporary files and directories
     shutil.rmtree(f'{curr_path}/temp', ignore_errors=True)
 
