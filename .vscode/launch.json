@@ -1,0 +1,21 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug rl_experiment_gui.py",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/quadrotor/rl_experiment_gui.py",
+            "args": [
+                "--algo",
+                "ppo",
+                "--task",
+                "quadrotor",
+                "--overrides",
+                "env/quadrotor_3D/quadrotor_3D_tracking.yaml"
+            ],
+            "cwd": "${workspaceFolder}/quadrotor/",
+            "stopOnEntry": false
+        }
+    ]
+}

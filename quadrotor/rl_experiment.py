@@ -74,7 +74,7 @@ def run(gui=True, n_episodes=1, n_steps=None, curr_path='.'):
             graph1_2 = 9
             graph3_1 = 0
             graph3_2 = 4
-
+        save_dir = './'
         _, ax = plt.subplots()
         ax.plot(results['obs'][0][:, graph1_1], results['obs'][0][:, graph1_2], 'r--', label='RL Trajectory')
         ax.scatter(results['obs'][0][0, graph1_1], results['obs'][0][0, graph1_2], color='g', marker='o', s=100, label='Initial State')
@@ -82,7 +82,8 @@ def run(gui=True, n_episodes=1, n_steps=None, curr_path='.'):
         ax.set_ylabel(r'$\dot{\theta}$')
         ax.set_box_aspect(0.5)
         ax.legend(loc='upper right')
-
+        if save_dir:
+            plt.savefig(os.path.join(save_dir, "figure1.png"))
 
         if config.task == Environment.QUADROTOR:
             _, ax2 = plt.subplots()
@@ -91,7 +92,8 @@ def run(gui=True, n_episodes=1, n_steps=None, curr_path='.'):
             ax2.set_ylabel(r'z_dot')
             ax2.set_box_aspect(0.5)
             ax2.legend(loc='upper right')
-
+        if save_dir:
+            plt.savefig(os.path.join(save_dir, "figure2.png"))
         _, ax3 = plt.subplots()
         ax3.plot(results['obs'][0][:, graph3_1], results['obs'][0][:, graph3_2], 'r--', label='RL Trajectory')
         if config.task_config.task == Task.TRAJ_TRACKING and config.task == Environment.QUADROTOR:
@@ -103,9 +105,11 @@ def run(gui=True, n_episodes=1, n_steps=None, curr_path='.'):
             ax3.set_ylabel(r'Z')
         ax3.set_box_aspect(0.5)
         ax3.legend(loc='upper right')
-
+        if save_dir:
+            plt.savefig(os.path.join(save_dir, "figure3.png"))
         plt.tight_layout()
         plt.show()
+      
 
     return env.X_GOAL, results, metrics
 
