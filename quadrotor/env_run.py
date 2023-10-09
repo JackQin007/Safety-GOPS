@@ -1,8 +1,8 @@
 from functools import partial
-from utils.registration import make
-from utils.configuration import ConfigFactory
-from env.benchmark_env import Task, Environment
-from ppo import *
+from quadrotor.utils.registration import make
+from quadrotor.utils.configuration import ConfigFactory
+from quadrotor.env.benchmark_env import Task, Environment
+from quadrotor.rl_controller import *
 
 
 def main():

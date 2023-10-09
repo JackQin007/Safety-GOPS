@@ -3,16 +3,13 @@
 import shutil
 from functools import partial
 import os
-import pickle
-import numpy as np
 import matplotlib.pyplot as plt
 
-from base_experiment import BaseExperiment
-from utils.registration import make
-from utils.configuration import ConfigFactory
-from env.benchmark_env import Task, Environment
-from ppo import *
-import pybullet as p
+from quadrotor.base_experiment import BaseExperiment
+from quadrotor.utils.registration import make
+from quadrotor.utils.configuration import ConfigFactory
+from quadrotor.env.benchmark_env import Task, Environment
+from quadrotor.rl_controller import *
 
 def run(gui=True, n_episodes=1, n_steps=None, curr_path='.'):
     '''Main function to run RL experiments.
@@ -53,7 +50,7 @@ def run(gui=True, n_episodes=1, n_steps=None, curr_path='.'):
     # Load state_dict from trained.
     print(f'------------------------\n{curr_path}/ppo/models/{config.algo}/{config.algo}_model_{system}_{task}.pt\n---------------------------------')
     
-    ctrl.load(f'{curr_path}/ppo/models/{config.algo}/{config.algo}_model_{system}_{task}.pt')
+    ctrl.load(f'{curr_path}/rl_controller/models/{config.algo}/{config.algo}_model_{system}_{task}.pt')
     # Remove temporary files and directories
     shutil.rmtree(f'{curr_path}/temp', ignore_errors=True)
 

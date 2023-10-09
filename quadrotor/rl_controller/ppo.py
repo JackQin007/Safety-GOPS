@@ -17,14 +17,14 @@ import time
 import numpy as np
 import torch
 
-from utils.logging import ExperimentLogger
-from utils.utils import get_random_state, set_random_state, is_wrapped
-from env import make_vec_envs
-from env.vectorized_env.record_episode_statistics import RecordEpisodeStatistics, VecRecordEpisodeStatistics
-from ppo.normalization import BaseNormalizer, MeanStdNormalizer, RewardStdNormalizer
+from quadrotor.utils.logging import ExperimentLogger
+from quadrotor.utils.utils import get_random_state, set_random_state, is_wrapped
+from quadrotor.env import make_vec_envs
+from quadrotor.env.vectorized_env.record_episode_statistics import RecordEpisodeStatistics, VecRecordEpisodeStatistics
+from quadrotor.rl_controller.normalization import BaseNormalizer, MeanStdNormalizer, RewardStdNormalizer
 
-from ppo.base_controller import BaseController
-from ppo.ppo_utils import PPOAgent, PPOBuffer, compute_returns_and_advantages
+from quadrotor.rl_controller.base_controller import BaseController
+from quadrotor.rl_controller.ppo_utils import PPOAgent, PPOBuffer, compute_returns_and_advantages
 import pybullet as p
 
 class PPO(BaseController):

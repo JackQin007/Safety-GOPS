@@ -1,10 +1,10 @@
 '''Register environments.'''
 
-from utils.registration import register
+from quadrotor.utils.registration import register
 
 register(idx='quadrotor',
-         entry_point='model.quadrotor:Quadrotor',
-         config_entry_point='model:quadrotor.yaml')
+         entry_point='quadrotor.model.quadrotor_env:Quadrotor',
+         config_entry_point='quadrotor.model:quadrotor.yaml')
 
 '''Initializing vectorized environments.'''
 
@@ -13,8 +13,8 @@ import random
 import torch
 import numpy as np
 
-from env.vectorized_env.dummy_vec_env import DummyVecEnv
-from env.vectorized_env.subproc_vec_env import SubprocVecEnv
+from quadrotor.env.vectorized_env.dummy_vec_env import DummyVecEnv
+from quadrotor.env.vectorized_env.subproc_vec_env import SubprocVecEnv
 
 
 def make_env_fn(env_func,

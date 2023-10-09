@@ -7,7 +7,7 @@ from collections import deque
 import gymnasium as gym
 import numpy as np
 
-from env.vectorized_env.vec_env import VecEnvWrapper
+from quadrotor.env.vectorized_env.vec_env import VecEnvWrapper
 
 
 class RecordEpisodeStatistics(gym.Wrapper):

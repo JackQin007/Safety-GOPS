@@ -7,9 +7,8 @@ import torch
 import torch.nn as nn
 import numpy as np
 from gymnasium.spaces import Box
-
-from ppo.neural_networks import MLP
-from ppo.distributions import Normal, Categorical
+from quadrotor.rl_controller.neural_networks import MLP
+from quadrotor.rl_controller.distributions import Normal, Categorical
 
 
 class PPOAgent:

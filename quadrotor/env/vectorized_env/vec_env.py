@@ -7,7 +7,7 @@ See also:
 
 from abc import ABC, abstractmethod
 
-from env.vectorized_env.vec_env_utils import tile_images
+from quadrotor.env.vectorized_env.vec_env_utils import tile_images
 
 
 class VecEnv(ABC):

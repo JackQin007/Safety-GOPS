@@ -10,9 +10,9 @@ import multiprocessing as mp
 
 import numpy as np
 
-from utils.utils import get_random_state, set_random_state
-from env.vectorized_env.vec_env import VecEnv
-from env.vectorized_env.vec_env_utils import _flatten_list, _flatten_obs, CloudpickleWrapper, clear_mpi_env_vars
+from quadrotor.utils.utils import get_random_state, set_random_state
+from quadrotor.env.vectorized_env.vec_env import VecEnv
+from quadrotor.env.vectorized_env.vec_env_utils import _flatten_list, _flatten_obs, CloudpickleWrapper, clear_mpi_env_vars
 
 
 class SubprocVecEnv(VecEnv):

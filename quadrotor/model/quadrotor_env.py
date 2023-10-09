@@ -13,12 +13,12 @@ from gymnasium import spaces
 import numpy as np
 import pybullet as p
 
-from env.benchmark_env import Cost, Task
-from env.constraints import GENERAL_CONSTRAINTS
-from env.math_and_models.symbolic_systems import SymbolicModel
-from model.base_aviary import BaseAviary
-from model.quadrotor_utils import QuadType, cmd2pwm, pwm2rpm
-from env.math_and_models.transformations import transform_trajectory, torchRotXYZ
+from quadrotor.env.benchmark_env import Cost, Task
+from quadrotor.env.constraints import GENERAL_CONSTRAINTS
+from quadrotor.env.math_and_models.symbolic_systems import SymbolicModel
+from quadrotor.model.base_aviary import BaseAviary
+from quadrotor.model.quadrotor_utils import QuadType, cmd2pwm, pwm2rpm
+from quadrotor.env.math_and_models.transformations import transform_trajectory, torchRotXYZ
 
 
 class Quadrotor(BaseAviary):
@@ -150,7 +150,7 @@ class Quadrotor(BaseAviary):
                  init_state=None,
                  inertial_prop=None,
                  # custom args
-                 quad_type: QuadType = QuadType.TWO_D,
+                 quad_type: QuadType = QuadType.ONE_D,
                  norm_act_scale=0.1,
                  obs_goal_horizon=0,
                  rew_state_weight=1.0,
@@ -680,7 +680,7 @@ class Quadrotor(BaseAviary):
     #         q_body = cs.MX.sym('q')  # body frame pith rate
     #         r_body = cs.MX.sym('r')  # body frame yaw rate
     #         # PyBullet Euler angles use the SDFormat for rotation matrices.
-    #         Rob = csRotXYZ(phi, theta, psi)  # rotation matrix transforming a vector in the body frame to the world frame.
+    #         Rob = torchRotXYZ(phi, theta, psi)  # rotation matrix transforming a vector in the body frame to the world frame.
 
     #         # Define state variables.
     #         X = cs.vertcat(x, x_dot, y, y_dot, z, z_dot, phi, theta, psi, p_body, q_body, r_body)
@@ -1091,3 +1091,9 @@ class Quadrotor(BaseAviary):
         if self.constraints is not None:
             info['symbolic_constraints'] = self.constraints.get_all_symbolic_models()
         return info
+
+
+if __name__ == '__main__':
+    env = Quadrotor()
+    env.reset()
+    env.step([0, 0])

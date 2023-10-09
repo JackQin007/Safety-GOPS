@@ -17,7 +17,7 @@ import numpy as np
 import pybullet as p
 import pybullet_data
 
-from env.benchmark_env import BenchmarkEnv
+from quadrotor.env.benchmark_env import BenchmarkEnv
 
 egl = pkgutil.get_loader('eglRenderer')
 

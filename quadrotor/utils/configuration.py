@@ -7,8 +7,8 @@ import warnings
 import munch
 from dict_deep import deep_set
 
-from utils.registration import get_config
-from utils.utils import read_file, merge_dict
+from quadrotor.utils.registration import get_config
+from quadrotor.utils.utils import read_file, merge_dict
 
 
 class ConfigFactory:
@@ -38,7 +38,7 @@ class ConfigFactory:
         self.add_argument('--output_dir', type=str, help='output saving folder')
         self.add_argument('--restore', type=str, help='folder to reload from')
         # Need to explicitly provide from command line (if training for the 1st time).
-        self.add_argument('--algo', type=str,default='ppo', help='algorithm/controller')
+        self.add_argument('--algo', type=str, help='algorithm/controller')
         self.add_argument('--task', type=str,default='quadrotor', help='task/environment')
         self.add_argument('--safety_filter', type=str, help='safety filter')
         self.add_argument('--overrides',

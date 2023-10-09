@@ -9,8 +9,8 @@ import gymnasium as gym
 import numpy as np
 from termcolor import colored
 
-from utils.utils import is_wrapped
-from env.math_and_models.performance_metrics import compute_cvar
+from quadrotor.utils.utils import is_wrapped
+from quadrotor.env.math_and_models.performance_metrics import compute_cvar
 
 
 class BaseExperiment:

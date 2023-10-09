@@ -1,7 +1,7 @@
 ### 2D Quadrotor Trajectory Tracking with PPO
 
 ```bash
-cd ~/code/quadrotor/
+cd quadrotor/
 python3 rl_experiment.py \
     --algo ppo \
     --task quadrotor \
@@ -15,7 +15,7 @@ python3 rl_experiment.py \
 ### 3D Quadrotor Trajectory Tracking with PPO
 
 ```bash
-cd ~/code/quadrotor/
+cd quadrotor/
 python3 rl_experiment.py \
     --algo ppo \
     --task quadrotor \

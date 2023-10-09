@@ -4,9 +4,9 @@ import copy
 
 import numpy as np
 
-from env.vectorized_env.vec_env import VecEnv
-from env.vectorized_env.vec_env_utils import _flatten_obs
-from utils.utils import get_random_state, set_random_state
+from quadrotor.env.vectorized_env.vec_env import VecEnv
+from quadrotor.env.vectorized_env.vec_env_utils import _flatten_obs
+from quadrotor.utils.utils import get_random_state, set_random_state
 
 
 class DummyVecEnv(VecEnv):

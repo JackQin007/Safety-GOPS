@@ -14,8 +14,8 @@ from gymnasium.utils import seeding
 import numpy as np
 from matplotlib import pyplot as plt
 
-from env.constraints import create_constraint_list
-from env.disturbances import create_disturbance_list
+from quadrotor.env.constraints import create_constraint_list
+from quadrotor.env.disturbances import create_disturbance_list
 
 
 class Cost(str, Enum):
