@@ -2,20 +2,25 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Debug rl_experiment_gui.py",
+            "name": "Run quadrotor/rl_experiment.py",
             "type": "python",
-            "request": "launch",
-            "program": "${workspaceFolder}/quadrotor/rl_experiment_gui.py",
+            "program": "${workspaceFolder}/quadrotor/rl_experiment.py",
             "args": [
                 "--algo",
                 "ppo",
                 "--task",
                 "quadrotor",
                 "--overrides",
-                "env/quadrotor_3D/quadrotor_3D_tracking.yaml"
+                "quadrotor/env/quadrotor_2D/quadrotor_2D_track.yaml",
+                "quadrotor/env/quadrotor_2D/ppo_quadrotor_2D.yaml",
+                "--kv_overrides",
+                "algo_config.training=False"
             ],
-            "cwd": "${workspaceFolder}/quadrotor/",
-            "stopOnEntry": false
+ 
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "stopOnEntry": false,
+            "request": "launch",
         }
     ]
 }
