@@ -1,8 +1,4 @@
-'''1D, 2D, and 3D quadrotor environment using PyBullet physics.
 
-Based on UTIAS Dynamic Systems Lab's gym-pybullet-drones:
-    * https://github.com/utiasDSL/gym-pybullet-drones
-'''
 
 import math
 import torch
@@ -30,7 +26,6 @@ class Quadrotor(BaseAviary):
 
     NAME = 'quadrotor'
     AVAILABLE_CONSTRAINTS = deepcopy(GENERAL_CONSTRAINTS)
-
     DISTURBANCE_MODES = {  # Set at runtime by QUAD_TYPE
         'observation': {
             'dim': -1
