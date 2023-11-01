@@ -135,10 +135,8 @@ class Env(gym.Env, metaclass=ABCMeta):
     _state: State[np.ndarray]
 
     def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, dict]:
-        reward = self._get_reward(action)
-        self._state = self._get_next_state(action)
-        terminated = self._get_terminated()
-        return self._get_obs(), reward, terminated, self._get_info()
+        obs, rew, done, info = self.robot.step(action)
+        return obs, rew, done, info
 
     def _get_info(self) -> dict:
         info = {'state': self._state}

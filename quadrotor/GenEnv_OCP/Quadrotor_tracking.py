@@ -26,17 +26,17 @@ class QuadTracking(Env):
             max_steer=max_steer,
         )
         self.context: QuadContext = QuadContext(
-            pre_horizon=pre_horizon,
-            dt=dt,
-            path_param=path_para,
-            speed_param=u_para,
+            # pre_horizon=pre_horizon,
+            # dt=dt,
+            # path_param=path_para,
+            # speed_param=u_para,
         )
         
-        self.state_space = spaces.Box(
-            low=np.array([-self.x_threshold, -np.finfo(np.float32).max]), 
-            high=np.array([self.x_threshold, np.finfo(np.float32).max]), 
-            dtype=np.float32)
-        
+        # self.state_space = spaces.Box(
+        #     low=np.array([-self.x_threshold, -np.finfo(np.float32).max]), 
+        #     high=np.array([self.x_threshold, np.finfo(np.float32).max]), 
+        #     dtype=np.float32)
+        self.state_space = self.robot.state_space
         self.action_space = self.robot.action_space
         self.max_episode_steps = 200
         self.seed()
@@ -47,16 +47,16 @@ class QuadTracking(Env):
     def reset(
         self,
     ) -> Tuple[np.ndarray, dict]:
-        return Quadrotor.reset()
+        return self.robot.reset()
 
     def _get_obs(self) -> np.ndarray:
-        return Quadrotor._get_obs()
+        return self.robot._get_obs()
 
     def _get_reward(self, action: np.ndarray) -> float:
-        return Quadrotor._get_reward()
+        return self.robot._get_reward()
 
     def _get_terminated(self) -> bool:
-        return Quadrotor._get_done()
+        return self.robot._get_done()
     
     def _get_info(self) -> dict:
         # return {
@@ -67,7 +67,7 @@ class QuadTracking(Env):
         #     "ref_time": self.context.state.ref_time,
         #     "ref": self.context.state.reference[0].copy(),
         # }
-        return Quadrotor._get_info()
+        return self.robot._get_info()
 
     def render(self, mode="human"):
         pass
@@ -79,12 +79,11 @@ def env_creator(**kwargs):
 if __name__ == "__main__":
     # test consistency with old environment
     import numpy as np
-    from quadrotor.GenEnv_OCP.Quadrotor_tracking import Veh3DoFTracking
-    env_new = Veh3DoFTracking()
+    env_new = QuadTracking()
     seed = 1
     env_new.seed(seed)
     np.random.seed(seed)
-    obs_new, _ = env_new.reset()
+    obs_new = env_new.reset()
     print("reset obs close:", obs_new)
     action = np.random.random(2)
     next_obs_new, reward_new, done_new, _ = env_new.step(action)

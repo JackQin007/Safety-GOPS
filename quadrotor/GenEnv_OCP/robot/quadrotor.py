@@ -18,7 +18,7 @@ class Quadrotor:
         self.ctrl_step_counter = 0 
         self.task = self.context.task
         self.GROUND_PLANE_Z = -0.05
-        low = np.array([
+        low = np.array([    
                 -self.x_threshold, -np.finfo(np.float32).max,
               
             ])
@@ -32,7 +32,7 @@ class Quadrotor:
                             'rad', 'rad', 'rad', 'rad/s', 'rad/s', 'rad/s']
         # Define the state space for the dynamics.
         self.state_space = spaces.Box(low=low, high=high, dtype=np.float32)
-        self.action_space = spaces.Box(low=-5.0, high=5.0, dtype=np.float32)
+        self.action_space = spaces.Box(low=np.array([ 0,-5.0]), high=np.array([0,5.0]), dtype=np.float32)
     def f_xu(self,X,T):
         m = self.context.MASS
         g= self.GRAVITY_ACC
@@ -47,9 +47,9 @@ class Quadrotor:
         return self._get_obs()
     
     def step(self, thrust):
-        X_dot= Quadrotor.f_xu(X=self.state,T=thrust)
+        X_dot= self.f_xu(X=self.state,T=thrust)
         self.state += self.dt * X_dot
-        self.robot.action = thrust
+        self.action = thrust
         obs = self._get_obs()
         rew = self._get_reward()
         done = self._get_done()
