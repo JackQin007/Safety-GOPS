@@ -76,6 +76,7 @@ class BaseAviary(BenchmarkEnv):
         self.DEG2RAD = np.pi / 180
         # Parameters.
         self.DRONE_MODEL = DroneModel(drone_model)
+        import ipdb; ipdb.set_trace()
         self.URDF_PATH = os.path.join(self.URDF_DIR, self.DRONE_MODEL.value + '.urdf')
         self.NUM_DRONES = num_drones
         self.PHYSICS = Physics(physics)

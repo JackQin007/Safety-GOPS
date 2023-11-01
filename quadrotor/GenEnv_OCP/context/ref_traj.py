@@ -1,11 +1,34 @@
 import numpy as np
+from enum import IntEnum
+
+class QuadType(IntEnum):
+    '''Quadrotor types numeration class.'''
+    ONE_D = 1  # One-dimensional (along z) movement.
+    TWO_D = 2  # Two-dimensional (in the x-z plane) movement.
+    THREE_D = 3  # Three-dimensional movement.
+
+TASK_INFO = {
+    'stabilization_goal': [0, 1],
+    'stabilization_goal_tolerance': 0.05,
+    'trajectory_type': 'circle',
+    'num_cycles': 1,
+    'trajectory_plane': 'zx',
+    'trajectory_position_offset': [0.5, 0],
+    'trajectory_scale': -0.5,
+    'proj_point': [0, 0, 0.5],
+    'proj_normal': [0, 1, 1],
+}
 
 class QuadContext:
-    def __init__(self,prior_prop={}, rew_state_weight=1.0,rew_act_weight=0.0001,
+    def __init__(self,
+                 prior_prop={}, 
+                 quad_type = QuadType.THREE_D,
+                 rew_state_weight=1.0,
+                 rew_act_weight=0.0001,
                  task = 'TRAJ_TRACKING') -> None:
+        self.QUAD_TYPE = QuadType(quad_type)
         self.task = task
         self.MASS = prior_prop.get('M', 1.0)
-        
         self.rew_state_weight = np.array(rew_state_weight, ndmin=1, dtype=float)
         self.rew_act_weight = np.array(rew_act_weight, ndmin=1, dtype=float)
         self.TASK_INFO = {
@@ -132,8 +155,23 @@ class QuadContext:
         self.CTRL_STEPS = self.EPISODE_LEN_SEC *  self.CTRL_FREQ
         self.U_GOAL = np.ones(self.action_dim) * self.MASS * self.GRAVITY_ACC / self.action_dim
         if self.task == 'STABILIZATION':
-            self.X_GOAL = np.hstack(
-                [self.TASK_INFO['stabilization_goal'][1],0.0])  # x = {z, z_dot}.
+            if self.QUAD_TYPE == QuadType.ONE_D:
+                self.X_GOAL = np.hstack(
+                    [self.TASK_INFO['stabilization_goal'][1],
+                     0.0])  # x = {z, z_dot}.
+            elif self.QUAD_TYPE == QuadType.TWO_D:
+                self.X_GOAL = np.hstack([
+                    self.TASK_INFO['stabilization_goal'][0], 0.0,
+                    self.TASK_INFO['stabilization_goal'][1], 0.0, 0.0, 0.0
+                ])  # x = {x, x_dot, z, z_dot, theta, theta_dot}.
+            elif self.QUAD_TYPE == QuadType.THREE_D:
+                self.X_GOAL = np.hstack([
+                    self.TASK_INFO['stabilization_goal'][0], 0.0,
+                    self.TASK_INFO['stabilization_goal'][1], 0.0,
+                    self.TASK_INFO['stabilization_goal'][2], 0.0,
+                    0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+                ])  # x = {x, x_dot, y, y_dot, z, z_dot, phi, theta, psi, p_body, q_body, r_body}.
+        
         elif self.task == 'TRAJ_TRACKING':
             POS_REF, VEL_REF, _ = self._generate_trajectory(traj_type=self.TASK_INFO['trajectory_type'],
                                                             traj_length=self.EPISODE_LEN_SEC,
@@ -143,13 +181,105 @@ class QuadContext:
                                                             scaling=self.TASK_INFO['trajectory_scale'],
                                                             sample_time=self.CTRL_TIMESTEP
                                                             )  # Each of the 3 returned values is of shape (Ctrl timesteps, 3)
-         
-            self.X_GOAL = np.vstack([
+            if self.QUAD_TYPE == QuadType.ONE_D:
+                self.X_GOAL = np.vstack([
                     POS_REF[:, 2],  # z
                     VEL_REF[:, 2]  # z_dot
                 ]).transpose()
-            
-            
+            elif self.QUAD_TYPE == QuadType.TWO_D:
+                self.X_GOAL = np.vstack([
+                    POS_REF[:, 0],  # x
+                    VEL_REF[:, 0],  # x_dot
+                    POS_REF[:, 2],  # z
+                    VEL_REF[:, 2],  # z_dot
+                    np.zeros(POS_REF.shape[0]),  # zeros
+                    np.zeros(VEL_REF.shape[0])
+                ]).transpose()
+            elif self.QUAD_TYPE == QuadType.THREE_D:
+                # Additional transformation of the originally planar trajectory.
+               
+                def transform_trajectory(pos, vel, trans_info={}):
+                    '''Makes 2D reference trajectory into a 3D one.
+                    Args:
+                        pos: position in the reference trajectory, with shape (T,3).
+                        vel: velocity in the reference trajectory, with shape (T,3).
+                    '''
+                    # Shape (4,4) with augmented last dim (always 1).
+                    M = projection_matrix(trans_info['point'], trans_info['normal'])
+                    # Position.
+                    aug_pos = np.concatenate([pos, np.ones((pos.shape[0], 1))], -1)  # (T,4)
+                    trans_pos = np.matmul(aug_pos, M.transpose())[:, :3]  # (T,3)
+                    # Velocity (transfomration is linear, direclty multiply for derivatives).
+                    aug_vel = np.concatenate([vel, np.ones((vel.shape[0], 1))], -1)  # (T,4)
+                    trans_vel = np.matmul(aug_vel, M.transpose())[:, :3]  # (T,3)
+                    return trans_pos, trans_vel
+                
+                def projection_matrix(point, normal, direction=None, perspective=None, pseudo=False):
+                    M = np.identity(4)
+                    point = np.array(point[:3], dtype=np.float64, copy=False)
+                    normal = unit_vector(normal[:3])
+                    if perspective is not None:
+                        # perspective projection
+                        perspective = np.array(perspective[:3], dtype=np.float64, copy=False)
+                        M[0, 0] = M[1, 1] = M[2, 2] = np.dot(perspective - point, normal)
+                        M[:3, :3] -= np.outer(perspective, normal)
+                        if pseudo:
+                            # preserve relative depth
+                            M[:3, :3] -= np.outer(normal, normal)
+                            M[:3, 3] = np.dot(point, normal) * (perspective + normal)
+                        else:
+                            M[:3, 3] = np.dot(point, normal) * perspective
+                        M[3, :3] = -normal
+                        M[3, 3] = np.dot(perspective, normal)
+                    elif direction is not None:
+                        # parallel projection
+                        direction = np.array(direction[:3], dtype=np.float64, copy=False)
+                        scale = np.dot(direction, normal)
+                        M[:3, :3] -= np.outer(direction, normal) / scale
+                        M[:3, 3] = direction * (np.dot(point, normal) / scale)
+                    else:
+                        # orthogonal projection
+                        M[:3, :3] -= np.outer(normal, normal)
+                        M[:3, 3] = np.dot(point, normal) * normal
+                    return M
+                def unit_vector(data, axis=None, out=None):
+                    if out is None:
+                        data = np.array(data, dtype=np.float64, copy=True)
+                        if data.ndim == 1:
+                            data /= np.sqrt(np.dot(data, data))
+                            return data
+                    else:
+                        if out is not data:
+                            out[:] = np.array(data, copy=False)
+                        data = out
+                    length = np.atleast_1d(np.sum(data * data, axis))
+                    np.sqrt(length, length)
+                    if axis is not None:
+                        length = np.expand_dims(length, axis)
+                    data /= length
+                    if out is None:
+                        return data
+                POS_REF_TRANS, VEL_REF_TRANS = transform_trajectory(
+                    POS_REF, VEL_REF, trans_info={
+                        'point': self.TASK_INFO['proj_point'],
+                        'normal': self.TASK_INFO['proj_normal'],
+                    })
+                
+                self.X_GOAL = np.vstack([
+                    POS_REF_TRANS[:, 0],  # x
+                    VEL_REF_TRANS[:, 0],  # x_dot
+                    POS_REF_TRANS[:, 1],  # y
+                    VEL_REF_TRANS[:, 1],  # y_dot
+                    POS_REF_TRANS[:, 2],  # z
+                    VEL_REF_TRANS[:, 2],  # z_dot
+                    np.zeros(POS_REF_TRANS.shape[0]),  # zeros
+                    np.zeros(POS_REF_TRANS.shape[0]),
+                    np.zeros(POS_REF_TRANS.shape[0]),
+                    np.zeros(VEL_REF_TRANS.shape[0]),
+                    np.zeros(VEL_REF_TRANS.shape[0]),
+                    np.zeros(VEL_REF_TRANS.shape[0])
+                ]).transpose()
+
     def _figure8(self,
                  t,
                  traj_period,
